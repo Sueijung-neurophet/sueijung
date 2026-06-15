@@ -954,11 +954,14 @@ header h1 { font-size: 13px; font-weight: 300; color: var(--text-muted); letter-
 .t2-flow-node.t2-dragging { opacity: .4; }
 .t2-drag-handle {
   font-size: 11px; color: rgba(200,222,217,.3);
-  cursor: grab; flex-shrink: 0; padding: 0 2px;
+  cursor: grab; flex-shrink: 0; padding: 0 4px;
   transition: color .1s; user-select: none;
-  letter-spacing: -1px;
+  letter-spacing: -1px; touch-action: none;
 }
-.t2-flow-card:hover .t2-drag-handle { color: rgba(200,222,217,.6); }
+.t2-flow-card:hover .t2-drag-handle,
+.t2-empty-slot-card:hover .t2-drag-handle,
+.t2-section-card:hover .t2-drag-handle { color: rgba(200,222,217,.7); }
+.t2-drag-handle:hover { color: var(--accent) !important; }
 
 
 /* ── 섹션 구분자 카드 ── */
@@ -3403,13 +3406,34 @@ function t2SetupDragDrop() {
     const card = node.querySelector('.t2-flow-card, .t2-empty-slot-card, .t2-section-card');
     if(!card) return;
 
+    // input/textarea는 드래그 비활성화 (텍스트 선택과 충돌 방지)
+    card.querySelectorAll('input, textarea').forEach(el => {
+      el.setAttribute('draggable', 'false');
+      el.addEventListener('mousedown', e => e.stopPropagation());
+    });
+
+    // 드래그 핸들에서만 draggable 활성화
+    const handle = card.querySelector('.t2-drag-handle');
+    if(handle) {
+      handle.addEventListener('pointerdown', e => {
+        card.setAttribute('draggable', 'true');
+      });
+    }
+    // 초기 draggable=false (핸들 pointerdown 시에만 true)
+    card.setAttribute('draggable', 'false');
+
     card.addEventListener('dragstart', e => {
+      // input/textarea가 타깃이면 드래그 차단
+      if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        e.preventDefault(); return;
+      }
       t2DragSrcIdx = i;
       node.classList.add('t2-dragging');
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', String(i));
     });
     card.addEventListener('dragend', () => {
+      card.setAttribute('draggable', 'false');
       node.classList.remove('t2-dragging');
       document.querySelectorAll('.t2-flow-node').forEach(n => n.classList.remove('t2-drag-over'));
       t2DragSrcIdx = null;
@@ -3515,6 +3539,7 @@ function t2BuildSectionNode(step, i, flow) {
   titleInp.addEventListener('input', e => { step.sectionTitle = e.target.value; step.name = e.target.value || '[섹션]'; });
   titleInp.addEventListener('click', e => e.stopPropagation());
   titleInp.addEventListener('keydown', e => e.stopPropagation());
+  titleInp.setAttribute('draggable', 'false');
 
   const delBtn = document.createElement('button');
   delBtn.className = 't2-section-del';
@@ -3538,6 +3563,7 @@ function t2BuildSectionNode(step, i, flow) {
     e.target.style.height = e.target.scrollHeight + 'px';
   });
   descInp.addEventListener('click', e => e.stopPropagation());
+  descInp.setAttribute('draggable', 'false');
   if(step.sectionDesc) { setTimeout(() => { descInp.style.height = descInp.scrollHeight + 'px'; }, 0); }
 
   card.appendChild(row1);
@@ -3618,6 +3644,7 @@ function t2BuildEmptySlotNode(step, i, flow) {
     customBadge.style.display = step.slotCustom ? '' : 'none';
   });
   titleInp.addEventListener('click', e => e.stopPropagation());
+  titleInp.setAttribute('draggable', 'false');
 
   const descInp = document.createElement('textarea');
   descInp.className = 't2-slot-desc-input';
@@ -3632,6 +3659,7 @@ function t2BuildEmptySlotNode(step, i, flow) {
     e.target.style.height = Math.min(e.target.scrollHeight, 54) + 'px';
   });
   descInp.addEventListener('click', e => e.stopPropagation());
+  descInp.setAttribute('draggable', 'false');
   if(step.slotDesc) { setTimeout(() => { descInp.style.height = Math.min(descInp.scrollHeight, 54) + 'px'; }, 0); }
 
   editRow.appendChild(titleInp);
